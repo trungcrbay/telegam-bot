@@ -4,10 +4,9 @@
   "description": "Telegram bot tu dong tao video tu 1 lenh",
   "main": "index.js",
   "scripts": {
-    "start": "npx puppeteer browsers install chrome && node index.js",
+    "start": "node scripts/install-chrome.js && node index.js",
     "dev": "nodemon index.js",
-    "postinstall": "npm run build-puppeteer || true",
-    "build-puppeteer": "node -e \"require('puppeteer').executablePath()\""
+    "prestart": "node scripts/install-chrome.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.21.0",

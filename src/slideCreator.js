@@ -1,21 +1,53 @@
 const puppeteer = require("puppeteer");
 const path = require("path");
+const fs = require("fs");
+const os = require("os");
 
-// ── Đảm bảo Chrome được cài đặt ────────────────────────────────────────────
-async function ensureChromeInstalled() {
+// ── Lấy đường dẫn đúng của Chrome ──────────────────────────────────────────
+async function getChromeExecutablePath() {
+  // 1. Kiểm tra env var
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
+    return process.env.PUPPETEER_EXECUTABLE_PATH;
+  }
+
+  // 2. Thử lấy từ Puppeteer
   try {
-    const browserFetcher = puppeteer.createBrowserFetcher();
-    const revisions = await browserFetcher.localRevisions();
-    if (revisions.length === 0) {
-      console.log("⏳ Đang cài đặt Chrome...");
-      await puppeteer.launch().then((b) => b.close());
+    const execPath = await puppeteer.executablePath();
+    if (execPath && fs.existsSync(execPath)) {
+      return execPath;
     }
   } catch (e) {
-    console.warn(
-      "⚠️ Không thể kiểm tra Chrome, sẽ cố gắng khởi động...",
-      e.message,
-    );
+    console.warn("⚠️  executablePath() lỗi:", e.message);
   }
+
+  // 3. Tìm trong cache directories phổ biến
+  const cacheDirs = [
+    process.env.PUPPETEER_CACHE_DIR,
+    path.join(os.homedir(), ".cache", "puppeteer"),
+    "/opt/render/.cache/puppeteer",
+    path.join(process.cwd(), "node_modules", "puppeteer", ".local-chromium"),
+  ].filter(Boolean);
+
+  for (const cacheDir of cacheDirs) {
+    try {
+      const files = fs.readdirSync(cacheDir);
+      for (const file of files) {
+        const chromePath = path.join(
+          cacheDir,
+          file,
+          process.platform === "win32" ? "chrome.exe" : "chrome",
+        );
+        if (fs.existsSync(chromePath)) {
+          console.log(`✅ Tìm thấy Chrome: ${chromePath}`);
+          return chromePath;
+        }
+      }
+    } catch (e) {
+      // Directory không tồn tại, tiếp tục
+    }
+  }
+
+  return undefined;
 }
 
 // ── Tạo palette màu từ hue + style ─────────────────────────────────────────
@@ -147,8 +179,14 @@ ${decos}
 
 // ── Main export ─────────────────────────────────────────────────────────────
 async function createSlides(script, tempDir) {
-  // Đảm bảo Chrome đã được cài đặt
-  await ensureChromeInstalled();
+  // Lấy đường dẫn Chrome
+  const executablePath = await getChromeExecutablePath();
+
+  if (!executablePath) {
+    throw new Error(
+      "❌ Chrome không tìm thấy. Vui lòng chạy: npx puppeteer browsers install chrome",
+    );
+  }
 
   // Lấy design từ Gemini, fallback nếu thiếu
   const design = script.design || {};
@@ -163,7 +201,7 @@ async function createSlides(script, tempDir) {
   const browser = await puppeteer.launch({
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
     headless: true,
-    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
+    executablePath: executablePath,
   });
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 720 });
