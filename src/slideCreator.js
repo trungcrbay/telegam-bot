@@ -1,57 +1,57 @@
-const puppeteer = require('puppeteer');
-const path = require('path');
+const puppeteer = require("puppeteer");
+const path = require("path");
 
 // ── Tạo palette màu từ hue + style ─────────────────────────────────────────
-function buildPalette(hue = 220, style = 'dark') {
+function buildPalette(hue = 220, style = "dark") {
   const h = ((hue % 360) + 360) % 360;
-  const comp = (h + 180) % 360;   // màu bổ sung
-  const ana  = (h + 30)  % 360;   // màu tương cận
+  const comp = (h + 180) % 360; // màu bổ sung
+  const ana = (h + 30) % 360; // màu tương cận
 
   const presets = {
     dark: {
-      bg1:    `hsl(${h},   60%, 8%)`,
-      bg2:    `hsl(${h},   50%, 14%)`,
-      bg3:    `hsl(${ana}, 45%, 18%)`,
+      bg1: `hsl(${h},   60%, 8%)`,
+      bg2: `hsl(${h},   50%, 14%)`,
+      bg3: `hsl(${ana}, 45%, 18%)`,
       accent: `hsl(${comp},90%, 65%)`,
-      text:   '#ffffff',
-      sub:    'rgba(255,255,255,0.72)',
-      deco:   'rgba(255,255,255,0.06)',
+      text: "#ffffff",
+      sub: "rgba(255,255,255,0.72)",
+      deco: "rgba(255,255,255,0.06)",
     },
     vibrant: {
-      bg1:    `hsl(${h},   80%, 35%)`,
-      bg2:    `hsl(${ana}, 75%, 42%)`,
-      bg3:    `hsl(${comp},70%, 30%)`,
+      bg1: `hsl(${h},   80%, 35%)`,
+      bg2: `hsl(${ana}, 75%, 42%)`,
+      bg3: `hsl(${comp},70%, 30%)`,
       accent: `hsl(${comp},100%,80%)`,
-      text:   '#ffffff',
-      sub:    'rgba(255,255,255,0.85)',
-      deco:   'rgba(255,255,255,0.10)',
+      text: "#ffffff",
+      sub: "rgba(255,255,255,0.85)",
+      deco: "rgba(255,255,255,0.10)",
     },
     neon: {
-      bg1:    `hsl(${h},   20%, 5%)`,
-      bg2:    `hsl(${h},   15%, 10%)`,
-      bg3:    `hsl(${h},   10%, 14%)`,
+      bg1: `hsl(${h},   20%, 5%)`,
+      bg2: `hsl(${h},   15%, 10%)`,
+      bg3: `hsl(${h},   10%, 14%)`,
       accent: `hsl(${h},  100%, 60%)`,
-      text:   `hsl(${h},  100%, 90%)`,
-      sub:    `hsl(${h},   40%, 70%)`,
-      deco:   `hsl(${h},  100%, 15%)`,
+      text: `hsl(${h},  100%, 90%)`,
+      sub: `hsl(${h},   40%, 70%)`,
+      deco: `hsl(${h},  100%, 15%)`,
     },
     pastel: {
-      bg1:    `hsl(${h},   40%, 92%)`,
-      bg2:    `hsl(${ana}, 35%, 88%)`,
-      bg3:    `hsl(${comp},30%, 90%)`,
+      bg1: `hsl(${h},   40%, 92%)`,
+      bg2: `hsl(${ana}, 35%, 88%)`,
+      bg3: `hsl(${comp},30%, 90%)`,
       accent: `hsl(${h},   65%, 45%)`,
-      text:   `hsl(${h},   30%, 20%)`,
-      sub:    `hsl(${h},   20%, 35%)`,
-      deco:   `hsl(${h},   50%, 70%)`,
+      text: `hsl(${h},   30%, 20%)`,
+      sub: `hsl(${h},   20%, 35%)`,
+      deco: `hsl(${h},   50%, 70%)`,
     },
     earth: {
-      bg1:    `hsl(${h},   25%, 12%)`,
-      bg2:    `hsl(${ana}, 20%, 18%)`,
-      bg3:    `hsl(${comp},15%, 22%)`,
+      bg1: `hsl(${h},   25%, 12%)`,
+      bg2: `hsl(${ana}, 20%, 18%)`,
+      bg3: `hsl(${comp},15%, 22%)`,
       accent: `hsl(${ana}, 70%, 58%)`,
-      text:   '#f5f0e8',
-      sub:    'rgba(245,240,232,0.75)',
-      deco:   'rgba(245,240,232,0.06)',
+      text: "#f5f0e8",
+      sub: "rgba(245,240,232,0.75)",
+      deco: "rgba(245,240,232,0.06)",
     },
   };
 
@@ -93,7 +93,7 @@ function buildHTML(slide, index, total, p, layout) {
   ][layout];
 
   // Padding-left thêm cho layout 3 (có thanh dọc)
-  const bodyPadding = layout === 3 ? '60px 70px 60px 80px' : '60px 70px';
+  const bodyPadding = layout === 3 ? "60px 70px 60px 80px" : "60px 70px";
 
   return `<!DOCTYPE html><html><head><meta charset="UTF-8">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
@@ -132,14 +132,18 @@ ${decos}
 async function createSlides(script, tempDir) {
   // Lấy design từ Gemini, fallback nếu thiếu
   const design = script.design || {};
-  const hue    = typeof design.hue   === 'number' ? design.hue   : Math.floor(Math.random() * 360);
-  const style  = design.style || 'dark';
+  const hue =
+    typeof design.hue === "number"
+      ? design.hue
+      : Math.floor(Math.random() * 360);
+  const style = design.style || "dark";
 
   const palette = buildPalette(hue, style);
 
   const browser = await puppeteer.launch({
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
     headless: true,
+    executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined,
   });
   const page = await browser.newPage();
   await page.setViewport({ width: 1280, height: 720 });
@@ -147,9 +151,15 @@ async function createSlides(script, tempDir) {
   const paths = [];
   for (let i = 0; i < script.slides.length; i++) {
     const layout = pickLayout(i);
-    const html   = buildHTML(script.slides[i], i, script.slides.length, palette, layout);
+    const html = buildHTML(
+      script.slides[i],
+      i,
+      script.slides.length,
+      palette,
+      layout,
+    );
 
-    await page.setContent(html, { waitUntil: 'networkidle0', timeout: 15000 });
+    await page.setContent(html, { waitUntil: "networkidle0", timeout: 15000 });
     const outPath = path.join(tempDir, `slide_${i + 1}.png`);
     await page.screenshot({ path: outPath });
     paths.push(outPath);
