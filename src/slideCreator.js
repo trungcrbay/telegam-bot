@@ -1,6 +1,23 @@
 const puppeteer = require("puppeteer");
 const path = require("path");
 
+// ── Đảm bảo Chrome được cài đặt ────────────────────────────────────────────
+async function ensureChromeInstalled() {
+  try {
+    const browserFetcher = puppeteer.createBrowserFetcher();
+    const revisions = await browserFetcher.localRevisions();
+    if (revisions.length === 0) {
+      console.log("⏳ Đang cài đặt Chrome...");
+      await puppeteer.launch().then((b) => b.close());
+    }
+  } catch (e) {
+    console.warn(
+      "⚠️ Không thể kiểm tra Chrome, sẽ cố gắng khởi động...",
+      e.message,
+    );
+  }
+}
+
 // ── Tạo palette màu từ hue + style ─────────────────────────────────────────
 function buildPalette(hue = 220, style = "dark") {
   const h = ((hue % 360) + 360) % 360;
@@ -130,6 +147,9 @@ ${decos}
 
 // ── Main export ─────────────────────────────────────────────────────────────
 async function createSlides(script, tempDir) {
+  // Đảm bảo Chrome đã được cài đặt
+  await ensureChromeInstalled();
+
   // Lấy design từ Gemini, fallback nếu thiếu
   const design = script.design || {};
   const hue =
