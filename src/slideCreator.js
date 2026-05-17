@@ -1,229 +1,240 @@
-const puppeteer = require("puppeteer");
-const path = require("path");
-const fs = require("fs");
-const os = require("os");
+const { Resvg } = require('@resvg/resvg-js');
+const path = require('path');
+const fs = require('fs');
 
-// ── Lấy đường dẫn đúng của Chrome ──────────────────────────────────────────
-async function getChromeExecutablePath() {
-  // 1. Kiểm tra env var
-  if (process.env.PUPPETEER_EXECUTABLE_PATH) {
-    return process.env.PUPPETEER_EXECUTABLE_PATH;
-  }
+const WIDTH = 1280;
+const HEIGHT = 720;
 
-  // 2. Thử lấy từ Puppeteer
-  try {
-    const execPath = await puppeteer.executablePath();
-    if (execPath && fs.existsSync(execPath)) {
-      return execPath;
-    }
-  } catch (e) {
-    console.warn("⚠️  executablePath() lỗi:", e.message);
-  }
-
-  // 3. Tìm trong cache directories phổ biến
-  const cacheDirs = [
-    process.env.PUPPETEER_CACHE_DIR,
-    path.join(os.homedir(), ".cache", "puppeteer"),
-    "/opt/render/.cache/puppeteer",
-    path.join(process.cwd(), "node_modules", "puppeteer", ".local-chromium"),
-  ].filter(Boolean);
-
-  for (const cacheDir of cacheDirs) {
-    try {
-      const files = fs.readdirSync(cacheDir);
-      for (const file of files) {
-        const chromePath = path.join(
-          cacheDir,
-          file,
-          process.platform === "win32" ? "chrome.exe" : "chrome",
-        );
-        if (fs.existsSync(chromePath)) {
-          console.log(`✅ Tìm thấy Chrome: ${chromePath}`);
-          return chromePath;
-        }
-      }
-    } catch (e) {
-      // Directory không tồn tại, tiếp tục
-    }
-  }
-
-  return undefined;
-}
-
-// ── Tạo palette màu từ hue + style ─────────────────────────────────────────
-function buildPalette(hue = 220, style = "dark") {
+function buildPalette(hue = 220, style = 'dark') {
   const h = ((hue % 360) + 360) % 360;
-  const comp = (h + 180) % 360; // màu bổ sung
-  const ana = (h + 30) % 360; // màu tương cận
+  const comp = (h + 180) % 360;
+  const ana = (h + 30) % 360;
 
   const presets = {
     dark: {
-      bg1: `hsl(${h},   60%, 8%)`,
-      bg2: `hsl(${h},   50%, 14%)`,
+      bg1: `hsl(${h}, 60%, 8%)`,
+      bg2: `hsl(${h}, 50%, 14%)`,
       bg3: `hsl(${ana}, 45%, 18%)`,
-      accent: `hsl(${comp},90%, 65%)`,
-      text: "#ffffff",
-      sub: "rgba(255,255,255,0.72)",
-      deco: "rgba(255,255,255,0.06)",
+      accent: `hsl(${comp}, 90%, 65%)`,
+      text: '#ffffff',
+      sub: 'rgba(255,255,255,0.72)',
+      deco: 'rgba(255,255,255,0.06)',
     },
     vibrant: {
-      bg1: `hsl(${h},   80%, 35%)`,
+      bg1: `hsl(${h}, 80%, 35%)`,
       bg2: `hsl(${ana}, 75%, 42%)`,
-      bg3: `hsl(${comp},70%, 30%)`,
-      accent: `hsl(${comp},100%,80%)`,
-      text: "#ffffff",
-      sub: "rgba(255,255,255,0.85)",
-      deco: "rgba(255,255,255,0.10)",
+      bg3: `hsl(${comp}, 70%, 30%)`,
+      accent: `hsl(${comp}, 100%, 80%)`,
+      text: '#ffffff',
+      sub: 'rgba(255,255,255,0.85)',
+      deco: 'rgba(255,255,255,0.10)',
     },
     neon: {
-      bg1: `hsl(${h},   20%, 5%)`,
-      bg2: `hsl(${h},   15%, 10%)`,
-      bg3: `hsl(${h},   10%, 14%)`,
-      accent: `hsl(${h},  100%, 60%)`,
-      text: `hsl(${h},  100%, 90%)`,
-      sub: `hsl(${h},   40%, 70%)`,
-      deco: `hsl(${h},  100%, 15%)`,
+      bg1: `hsl(${h}, 20%, 5%)`,
+      bg2: `hsl(${h}, 15%, 10%)`,
+      bg3: `hsl(${h}, 10%, 14%)`,
+      accent: `hsl(${h}, 100%, 60%)`,
+      text: `hsl(${h}, 100%, 90%)`,
+      sub: `hsl(${h}, 40%, 70%)`,
+      deco: `hsl(${h}, 100%, 15%)`,
     },
     pastel: {
-      bg1: `hsl(${h},   40%, 92%)`,
+      bg1: `hsl(${h}, 40%, 92%)`,
       bg2: `hsl(${ana}, 35%, 88%)`,
-      bg3: `hsl(${comp},30%, 90%)`,
-      accent: `hsl(${h},   65%, 45%)`,
-      text: `hsl(${h},   30%, 20%)`,
-      sub: `hsl(${h},   20%, 35%)`,
-      deco: `hsl(${h},   50%, 70%)`,
+      bg3: `hsl(${comp}, 30%, 90%)`,
+      accent: `hsl(${h}, 65%, 45%)`,
+      text: `hsl(${h}, 30%, 20%)`,
+      sub: `hsl(${h}, 20%, 35%)`,
+      deco: `hsl(${h}, 50%, 70%)`,
     },
     earth: {
-      bg1: `hsl(${h},   25%, 12%)`,
+      bg1: `hsl(${h}, 25%, 12%)`,
       bg2: `hsl(${ana}, 20%, 18%)`,
-      bg3: `hsl(${comp},15%, 22%)`,
+      bg3: `hsl(${comp}, 15%, 22%)`,
       accent: `hsl(${ana}, 70%, 58%)`,
-      text: "#f5f0e8",
-      sub: "rgba(245,240,232,0.75)",
-      deco: "rgba(245,240,232,0.06)",
+      text: '#f5f0e8',
+      sub: 'rgba(245,240,232,0.75)',
+      deco: 'rgba(245,240,232,0.06)',
     },
   };
 
   return presets[style] || presets.dark;
 }
 
-// ── Random layout variant (0-3) ─────────────────────────────────────────────
 function pickLayout(index) {
-  return index % 4; // xoay vòng 4 layout
+  return index % 4;
 }
 
-// ── Build HTML slide ────────────────────────────────────────────────────────
-function buildHTML(slide, index, total, p, layout) {
-  const pct = Math.round(((index + 1) / total) * 100);
-
-  // Hình trang trí — khác nhau theo layout
-  const decos = [
-    // layout 0 — circles góc
-    `<div style="position:absolute;width:420px;height:420px;border-radius:50%;
-       background:${p.deco};top:-140px;right:-100px"></div>
-     <div style="position:absolute;width:280px;height:280px;border-radius:50%;
-       background:${p.deco};bottom:-80px;left:-60px"></div>`,
-
-    // layout 1 — diagonal strip
-    `<div style="position:absolute;width:200%;height:320px;
-       background:${p.deco};transform:rotate(-8deg);top:160px;left:-50%"></div>`,
-
-    // layout 2 — corner squares
-    `<div style="position:absolute;width:180px;height:180px;
-       background:${p.deco};top:0;right:0;border-radius:0 0 0 80px"></div>
-     <div style="position:absolute;width:120px;height:120px;
-       background:${p.deco};bottom:0;left:0;border-radius:0 80px 0 0"></div>`,
-
-    // layout 3 — vertical bar
-    `<div style="position:absolute;width:8px;height:100%;
-       background:linear-gradient(to bottom,${p.accent},transparent);left:0;top:0"></div>
-     <div style="position:absolute;width:360px;height:360px;border-radius:50%;
-       background:${p.deco};top:50%;right:-80px;transform:translateY(-50%)"></div>`,
-  ][layout];
-
-  // Padding-left thêm cho layout 3 (có thanh dọc)
-  const bodyPadding = layout === 3 ? "60px 70px 60px 80px" : "60px 70px";
-
-  return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap" rel="stylesheet">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{
-  width:1280px;height:720px;overflow:hidden;
-  background:linear-gradient(135deg,${p.bg1} 0%,${p.bg2} 55%,${p.bg3} 100%);
-  font-family:'Inter',sans-serif;
-  color:${p.text};
-  display:flex;flex-direction:column;
-  padding:${bodyPadding};
-  position:relative;
-}
-.num{font-size:14px;font-weight:700;color:${p.accent};letter-spacing:3px;text-transform:uppercase;margin-bottom:6px}
-.bar-bg{height:3px;background:rgba(128,128,128,.25);border-radius:2px;margin-bottom:46px}
-.bar-fg{height:3px;background:${p.accent};border-radius:2px;width:${pct}%;
-  box-shadow:0 0 8px ${p.accent}}
-h1{font-size:56px;font-weight:900;line-height:1.18;margin-bottom:22px;max-width:920px;
-  text-shadow:0 2px 20px rgba(0,0,0,.3)}
-.accent-bar{width:64px;height:5px;border-radius:3px;background:${p.accent};margin-bottom:24px;
-  box-shadow:0 0 12px ${p.accent}}
-p{font-size:25px;line-height:1.65;color:${p.sub};max-width:940px;font-weight:400}
-</style></head>
-<body>
-${decos}
-<div class="num">SLIDE ${index + 1} / ${total}</div>
-<div class="bar-bg"><div class="bar-fg"></div></div>
-<h1>${slide.title}</h1>
-<div class="accent-bar"></div>
-<p>${slide.content}</p>
-</body></html>`;
+function escapeXml(value) {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;');
 }
 
-// ── Main export ─────────────────────────────────────────────────────────────
-async function createSlides(script, tempDir) {
-  // Lấy đường dẫn Chrome
-  const executablePath = await getChromeExecutablePath();
+function wrapText(text, maxChars) {
+  const paragraphs = String(text || '').split('\n');
+  const lines = [];
 
-  if (!executablePath) {
-    throw new Error(
-      "❌ Chrome không tìm thấy. Vui lòng chạy: npx puppeteer browsers install chrome",
-    );
+  for (const paragraph of paragraphs) {
+    const words = paragraph.trim().split(/\s+/).filter(Boolean);
+    if (words.length === 0) {
+      lines.push('');
+      continue;
+    }
+
+    let current = words[0];
+    for (let i = 1; i < words.length; i++) {
+      const testLine = `${current} ${words[i]}`;
+      if (testLine.length <= maxChars) {
+        current = testLine;
+      } else {
+        lines.push(current);
+        current = words[i];
+      }
+    }
+    lines.push(current);
   }
 
-  // Lấy design từ Gemini, fallback nếu thiếu
+  return lines;
+}
+
+function fitText(text, widthChars, sizes) {
+  for (const size of sizes) {
+    const maxChars = Math.max(8, Math.floor(widthChars * (56 / size)));
+    const lines = wrapText(text, maxChars);
+    const maxLines = size >= 50 ? 4 : 6;
+    if (lines.length <= maxLines) {
+      return { size, lines };
+    }
+  }
+
+  const size = sizes[sizes.length - 1];
+  const maxChars = Math.max(8, Math.floor(widthChars * (56 / size)));
+  return { size, lines: wrapText(text, maxChars) };
+}
+
+function buildBackground(layout, p) {
+  if (layout === 0) {
+    return `
+      <circle cx="1180" cy="-60" r="260" fill="${p.deco}" />
+      <circle cx="95" cy="760" r="190" fill="${p.deco}" />
+    `;
+  }
+
+  if (layout === 1) {
+    return `
+      <g transform="translate(640 360) rotate(-8)">
+        <rect x="-1280" y="138" width="2560" height="120" fill="${p.deco}" />
+      </g>
+    `;
+  }
+
+  if (layout === 2) {
+    return `
+      <rect x="1100" y="0" width="180" height="180" rx="80" fill="${p.deco}" />
+      <rect x="0" y="600" width="120" height="120" rx="60" fill="${p.deco}" />
+    `;
+  }
+
+  return `
+    <rect x="0" y="0" width="8" height="720" fill="url(#accentBar)" />
+    <circle cx="1200" cy="360" r="180" fill="${p.deco}" />
+  `;
+}
+
+function buildSvg(slide, index, total, p, layout) {
+  const pct = Math.round(((index + 1) / total) * 100);
+  const left = layout === 3 ? 80 : 70;
+  const right = 70;
+  const titleAreaWidth = WIDTH - left - right;
+  const contentAreaWidth = WIDTH - left - right;
+
+  const titleFit = fitText(slide.title, Math.floor(titleAreaWidth / 18), [58, 52, 46, 40, 36, 32]);
+  const contentFit = fitText(slide.content, Math.floor(contentAreaWidth / 14), [28, 26, 24, 22, 20, 18]);
+
+  const titleSize = titleFit.size;
+  const contentSize = contentFit.size;
+  const titleLineHeight = Math.round(titleSize * 1.12);
+  const contentLineHeight = Math.round(contentSize * 1.55);
+  const titleLines = titleFit.lines.slice(0, 4);
+  const contentLines = contentFit.lines.slice(0, 6);
+
+  const titleY = 170;
+  const titleBlockHeight = titleLines.length * titleLineHeight;
+  const contentY = titleY + titleBlockHeight + 52;
+
+  return `
+  <svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="${p.bg1}" />
+        <stop offset="55%" stop-color="${p.bg2}" />
+        <stop offset="100%" stop-color="${p.bg3}" />
+      </linearGradient>
+      <linearGradient id="progressTrack" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stop-color="rgba(255,255,255,0.22)" />
+        <stop offset="100%" stop-color="rgba(255,255,255,0.16)" />
+      </linearGradient>
+      <linearGradient id="accentBar" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${p.accent}" />
+        <stop offset="100%" stop-color="rgba(255,255,255,0)" />
+      </linearGradient>
+      <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="0" dy="2" stdDeviation="8" flood-color="rgba(0,0,0,0.28)" />
+      </filter>
+    </defs>
+
+    <rect width="${WIDTH}" height="${HEIGHT}" fill="url(#bg)" />
+    ${buildBackground(layout, p)}
+
+    <text x="${left}" y="66" fill="${p.accent}" font-size="14" font-weight="700" letter-spacing="3" font-family="Arial, sans-serif">SLIDE ${index + 1} / ${total}</text>
+
+    <rect x="${left}" y="128" width="${WIDTH - left - right}" height="3" rx="2" fill="url(#progressTrack)" />
+    <rect x="${left}" y="128" width="${((WIDTH - left - right) * pct) / 100}" height="3" rx="2" fill="${p.accent}" />
+
+    <g filter="url(#shadow)">
+      ${titleLines
+        .map(
+          (line, lineIndex) => `<text x="${left}" y="${titleY + lineIndex * titleLineHeight}" fill="${p.text}" font-size="${titleSize}" font-weight="900" font-family="Arial, sans-serif">${escapeXml(line)}</text>`,
+        )
+        .join('')}
+    </g>
+
+    <rect x="${left}" y="${titleY + titleBlockHeight + 12}" width="64" height="5" rx="3" fill="${p.accent}" />
+
+    ${contentLines
+      .map(
+        (line, lineIndex) => `<text x="${left}" y="${contentY + lineIndex * contentLineHeight}" fill="${p.sub}" font-size="${contentSize}" font-weight="400" font-family="Arial, sans-serif">${escapeXml(line)}</text>`,
+      )
+      .join('')}
+  </svg>`;
+}
+
+async function createSlides(script, tempDir) {
   const design = script.design || {};
-  const hue =
-    typeof design.hue === "number"
-      ? design.hue
-      : Math.floor(Math.random() * 360);
-  const style = design.style || "dark";
-
+  const hue = typeof design.hue === 'number' ? design.hue : Math.floor(Math.random() * 360);
+  const style = design.style || 'dark';
   const palette = buildPalette(hue, style);
-
-  const browser = await puppeteer.launch({
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-    headless: true,
-    executablePath: executablePath,
-  });
-  const page = await browser.newPage();
-  await page.setViewport({ width: 1280, height: 720 });
 
   const paths = [];
   for (let i = 0; i < script.slides.length; i++) {
     const layout = pickLayout(i);
-    const html = buildHTML(
-      script.slides[i],
-      i,
-      script.slides.length,
-      palette,
-      layout,
-    );
-
-    await page.setContent(html, { waitUntil: "networkidle0", timeout: 15000 });
+    const svg = buildSvg(script.slides[i], i, script.slides.length, palette, layout);
+    const resvg = new Resvg(svg, {
+      fitTo: {
+        mode: 'width',
+        value: WIDTH,
+      },
+    });
+    const pngData = resvg.render();
     const outPath = path.join(tempDir, `slide_${i + 1}.png`);
-    await page.screenshot({ path: outPath });
+    fs.writeFileSync(outPath, pngData.asPng());
     paths.push(outPath);
   }
 
-  await browser.close();
   return paths;
 }
 
